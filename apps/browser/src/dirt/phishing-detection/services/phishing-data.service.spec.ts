@@ -81,11 +81,14 @@ describe("PhishingDataService", () => {
 
     it("stages the public list in the inactive slot before publishing its metadata", async () => {
       const body = {} as ReadableStream;
-      apiService.nativeFetch.mockResolvedValue({
-        ok: true,
-        body,
-        headers: { get: () => '"latest"' },
-      } as Response);
+      apiService.nativeFetch.mockResolvedValue(
+        mock<Response>({
+          ok: true,
+          status: 200,
+          body,
+          headers: mock<Headers>({ get: () => '"latest"' }),
+        }),
+      );
       mockIndexedDbService.saveUrlsFromStream.mockResolvedValue("new-list-hash");
 
       const result = await service["_performDeltaSync"]({
