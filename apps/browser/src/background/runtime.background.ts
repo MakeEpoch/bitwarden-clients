@@ -5,7 +5,6 @@ import { firstValueFrom, map, mergeMap } from "rxjs";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AutofillOverlayVisibility, ExtensionCommand } from "@bitwarden/common/autofill/constants";
 import { AutofillSettingsServiceAbstraction } from "@bitwarden/common/autofill/services/autofill-settings.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { LogService } from "@bitwarden/common/platform/abstractions/log.service";
 import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
@@ -73,7 +72,6 @@ export default class RuntimeBackground {
     private messageListener: MessageListener,
     private accountService: AccountService,
     private readonly lockService: LockService,
-    private billingAccountProfileStateService: BillingAccountProfileStateService,
     private browserInitialInstallService: BrowserInitialInstallService,
     private autofillLifecycleService: AutofillLifecycleService,
     private defaultPasswordManagerPromptStateAccessor: DefaultPasswordManagerPromptStateAccessor,
@@ -117,7 +115,6 @@ export default class RuntimeBackground {
         BiometricsCommands.UnlockWithBiometricsForUser,
         BiometricsCommands.GetBiometricsStatusForUser,
         BiometricsCommands.CanEnableBiometricUnlock,
-        "getUserPremiumStatus",
         "getUrlAutofillTargetingRules",
         "collectPageDetailsForPopup",
         "fillCipherForPopup",
@@ -262,15 +259,6 @@ export default class RuntimeBackground {
       }
       case BiometricsCommands.CanEnableBiometricUnlock: {
         return await this.main.biometricsService.canEnableBiometricUnlock();
-      }
-      case "getUserPremiumStatus": {
-        const activeUserId = await firstValueFrom(
-          this.accountService.activeAccount$.pipe(map((a) => a?.id)),
-        );
-        const result = await firstValueFrom(
-          this.billingAccountProfileStateService.hasPremiumFromAnySource$(activeUserId),
-        );
-        return result;
       }
       case "getUrlAutofillTargetingRules": {
         // Rules are matched against the sender frame's URL rather than the tab's to minimize

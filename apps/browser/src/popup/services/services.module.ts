@@ -153,7 +153,6 @@ import { InternalFolderService } from "@bitwarden/common/vault/abstractions/fold
 import { TotpService as TotpServiceAbstraction } from "@bitwarden/common/vault/abstractions/totp.service";
 import { DefaultCipherArchiveService } from "@bitwarden/common/vault/services/default-cipher-archive.service";
 import { RestrictedItemTypesService } from "@bitwarden/common/vault/services/restricted-item-types.service";
-import { TotpService } from "@bitwarden/common/vault/services/totp.service";
 import {
   AnonLayoutWrapperDataService,
   CompactModeService,
@@ -260,6 +259,7 @@ import {
 } from "../../platform/system-notifications/browser-system-notification.service";
 import { fromChromeRuntimeMessaging } from "../../platform/utils/from-chrome-runtime-messaging";
 import { BrowserAutofillNudgeService } from "../../vault/popup/services/browser-autofill-nudge.service";
+import { BrowserTotpService } from "../../vault/services/browser-totp.service";
 import { Fido2UserVerificationService } from "../../vault/services/fido2-user-verification.service";
 import { ExtensionAnonLayoutWrapperDataService } from "../components/extension-anon-layout-wrapper/extension-anon-layout-wrapper-data.service";
 
@@ -387,7 +387,7 @@ const safeProviders: SafeProvider[] = [
   }),
   safeProvider({
     provide: TotpServiceAbstraction,
-    useClass: TotpService,
+    useClass: BrowserTotpService,
     deps: [SdkService],
   }),
   safeProvider({
@@ -601,7 +601,25 @@ const safeProviders: SafeProvider[] = [
   }),
   safeProvider({
     provide: PhishingDetectionSettingsServiceAbstraction,
-    useClass: PhishingDetectionSettingsService,
+    useFactory: (
+      accountService: AccountService,
+      billingService: BillingAccountProfileStateService,
+      configService: ConfigService,
+      logService: LogService,
+      organizationService: OrganizationService,
+      platformService: PlatformUtilsService,
+      stateProvider: StateProvider,
+    ) =>
+      new PhishingDetectionSettingsService(
+        accountService,
+        billingService,
+        configService,
+        logService,
+        organizationService,
+        platformService,
+        stateProvider,
+        true,
+      ),
     deps: [
       AccountService,
       BillingAccountProfileStateService,

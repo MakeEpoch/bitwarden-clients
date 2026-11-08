@@ -20,12 +20,22 @@
  *
  * for Chrome.
  */
-function transform(browser) {
+function transform(browser, makeEpochBrand = false) {
   return (buffer) => {
     let manifest = JSON.parse(buffer.toString());
 
     manifest = transformPrefixes(manifest, browser);
     manifest = transformChannel(manifest);
+
+    if (makeEpochBrand) {
+      manifest.name = "MakeEpoch Vault";
+      manifest.short_name = "MakeEpoch Vault";
+      manifest.description = "An independent browser extension based on Bitwarden.";
+      manifest.homepage_url = "https://github.com/MakeEpoch/bitwarden-clients";
+      if (manifest.action) {
+        manifest.action.default_title = manifest.name;
+      }
+    }
 
     return JSON.stringify(manifest, null, 2);
   };

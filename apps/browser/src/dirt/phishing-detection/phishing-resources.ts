@@ -3,3 +3,6 @@ export const PHISHING_MANIFEST_URL = "https://assets.bitwarden.com/security/v1/m
 export const PHISHING_PATCH_BASE_URL = "https://assets.bitwarden.com/security/v1/";
 export const PHISHING_CHECKSUM_URL =
   "https://raw.githubusercontent.com/Phishing-Database/checksums/refs/heads/master/phishing-links-ACTIVE.txt.md5";
+
+export const PUBLIC_PHISHING_URL =
+  "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-links-ACTIVE.txt";

@@ -112,6 +112,7 @@ export class ContextMenuClickedHandler {
     private authService: AuthService,
     private cipherService: CipherService,
     private totpService: TotpService,
+    private canUseTotp: (cipher: CipherView) => Promise<boolean>,
     private eventCollectionService: EventCollectionService,
     private userVerificationService: UserVerificationService,
     private accountService: AccountService,
@@ -289,7 +290,7 @@ export class ContextMenuClickedHandler {
           break;
         }
 
-        if (!cipher || !cipher.login?.totp) {
+        if (!cipher?.login?.totp || !(await this.canUseTotp(cipher))) {
           break;
         }
 

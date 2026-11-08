@@ -901,7 +901,7 @@ export class OverlayBackground implements OverlayBackgroundInterface {
     };
 
     if (cipher.type === CipherType.Login) {
-      const totpResponse = cipher.login?.totp
+      const totpResponse = (await this.autofillService.canUseTotp(cipher))
         ? await firstValueFrom(this.totpService.getCode$(cipher.login.totp))
         : undefined;
 
@@ -1482,7 +1482,11 @@ export class OverlayBackground implements OverlayBackgroundInterface {
       }
       this.updateLastUsedInlineMenuCipher(inlineMenuCipherId, cipher);
 
-      if (cipher.login?.totp) {
+      if (
+        (await this.autofillService.getShouldAutoCopyTotp()) &&
+        (await this.autofillService.canUseTotp(cipher)) &&
+        !(await this.autofillService.isPasswordRepromptRequired(cipher, tab))
+      ) {
         const totpResponse = await firstValueFrom(this.totpService.getCode$(cipher.login.totp));
 
         if (totpResponse?.code) {

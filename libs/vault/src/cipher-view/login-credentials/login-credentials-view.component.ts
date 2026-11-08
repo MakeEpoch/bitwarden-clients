@@ -22,6 +22,7 @@ import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abs
 import { EventCollectionService, EventType } from "@bitwarden/common/dirt/event-logs";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { UserId } from "@bitwarden/common/types/guid";
+import { TotpService } from "@bitwarden/common/vault/abstractions/totp.service";
 import { CipherView } from "@bitwarden/common/vault/models/view/cipher.view";
 import {
   FormFieldModule,
@@ -83,6 +84,16 @@ export class LoginCredentialsViewComponent implements OnChanges {
   readonly hasAnonymousPremium$ = toObservable(this.hasAnonymousPremium);
 
   readonly activeUserId$ = toObservable(this.activeUserId);
+
+  private readonly totpService = inject(TotpService, { optional: true });
+
+  protected get hasLocalPersonalTotp(): boolean {
+    return (
+      !!this.activeUserId() &&
+      this.totpService?.canGenerateForPersonalVault === true &&
+      this.cipher?.organizationId == null
+    );
+  }
 
   isPremium$: Observable<boolean> = this.activeUserId$.pipe(
     switchMap((userId) => {

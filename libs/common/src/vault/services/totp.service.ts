@@ -25,8 +25,10 @@ export type TotpInfo = {
   totpLow: boolean;
 };
 
-export class TotpService implements TotpServiceAbstraction {
-  constructor(private sdkService: SdkService) {}
+export class TotpService extends TotpServiceAbstraction {
+  constructor(private sdkService: SdkService) {
+    super();
+  }
 
   getCode$(key: string): Observable<TotpResponse> {
     return timer(0, 1000).pipe(

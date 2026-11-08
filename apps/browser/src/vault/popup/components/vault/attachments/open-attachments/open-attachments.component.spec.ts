@@ -71,7 +71,10 @@ describe("OpenAttachmentsComponent", () => {
       imports: [OpenAttachmentsComponent, RouterTestingModule],
       providers: [
         { provide: I18nService, useValue: { t: (key: string) => key } },
-        { provide: BillingAccountProfileStateService, useValue: { hasPremiumFromAnySource$ } },
+        {
+          provide: BillingAccountProfileStateService,
+          useValue: { hasPremiumFromAnySource$: () => hasPremiumFromAnySource$ },
+        },
         {
           provide: CipherService,
           useValue: mockCipherService,
@@ -131,7 +134,16 @@ describe("OpenAttachmentsComponent", () => {
     expect(premiumUpgradeService.promptForPremium).toHaveBeenCalled();
   });
 
-  it("disables attachments when the edit form is disabled", () => {
+  it("hides the attachment entry when the account cannot use attachments", async () => {
+    hasPremiumFromAnySource$.next(false);
+    await component.ngOnInit();
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css("button"))).toBeNull();
+  });
+
+  it("disables attachments when the edit form is disabled", async () => {
+    await component.ngOnInit();
     formStatusChange$.next("disabled");
     fixture.detectChanges();
 

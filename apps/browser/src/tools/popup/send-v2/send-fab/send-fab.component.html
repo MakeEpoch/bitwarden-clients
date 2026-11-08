@@ -7,7 +7,7 @@
     [label]="'createSend' | i18n"
     (click)="navigateToRestrictedSend()"
   ></button>
-} @else {
+} @else if (allowedSendTypes().length > 1) {
   <!-- Button content is set via `label` input -->
   <!-- eslint-disable-next-line @angular-eslint/template/elements-content -->
   <button

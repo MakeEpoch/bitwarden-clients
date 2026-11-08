@@ -8312,6 +8312,18 @@
   "introducingHealth": {
     "message": "健康状况介绍"
   },
+  "localPasswordWeak": {
+    "message": "刚填充的密码强度较低。请在密码库中更换。"
+  },
+  "localPasswordReused": {
+    "message": "刚填充的密码已被多个条目复用。请在密码库中更换。"
+  },
+  "localPasswordWeakAndReused": {
+    "message": "刚填充的密码强度较低且被复用。请在密码库中更换。"
+  },
+  "localHealthBreachPrivacy": {
+    "message": "泄露检查仅向 Have I Been Pwned 发送每个密码哈希的前五个字符。"
+  },
   "healthIntroDescription": {
     "message": "通过修复暴露的、弱的和重复使用的密码，监测并改善您的密码库的健康状况。"
   },

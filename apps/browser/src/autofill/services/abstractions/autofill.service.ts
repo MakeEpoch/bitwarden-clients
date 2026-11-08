@@ -104,6 +104,8 @@ export abstract class AutofillService {
    * {@link AutofillOrchestrator} to request an autofill!
    */
   doAutoFill!: (options: AutoFillOptions) => Promise<FillResult>;
+  canUseTotp!: (cipher: CipherView) => Promise<boolean>;
+  getShouldAutoCopyTotp!: () => Promise<boolean>;
   /** Non-null asserted. */
   setAutoFillOnPageLoadOrgPolicy!: () => Promise<void>;
   /** Non-null asserted. */

@@ -1,13 +1,4 @@
-import {
-  distinctUntilChanged,
-  EMPTY,
-  filter,
-  firstValueFrom,
-  map,
-  merge,
-  switchMap,
-  tap,
-} from "rxjs";
+import { distinctUntilChanged, EMPTY, filter, firstValueFrom, map, merge, switchMap } from "rxjs";
 
 import { OrganizationService } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { Organization } from "@bitwarden/common/admin-console/models/domain/organization";
@@ -83,9 +74,6 @@ export class PhishingDetectionService {
     };
 
     const onContinueCommand$ = messageListener.messages$(PHISHING_DETECTION_CONTINUE_COMMAND).pipe(
-      tap((message) =>
-        logService.debug(`[PhishingDetectionService] user selected continue for ${message.url}`),
-      ),
       switchMap(async (message) => {
         await recordEvents(EventType.PhishingBlocker_Bypassed);
         const url = new URL(message.url);
@@ -132,7 +120,7 @@ export class PhishingDetectionService {
 
         const phishingWarningPage = new URL(
           BrowserApi.getRuntimeURL("popup/index.html#/security/phishing-warning") +
-            `?phishingUrl=${url.toString()}`,
+            `?${new URLSearchParams({ phishingUrl: url.href })}`,
         );
         await recordEvents(EventType.PhishingBlocker_SiteAccessed);
         await BrowserApi.navigateTabToUrl(tabId, phishingWarningPage);

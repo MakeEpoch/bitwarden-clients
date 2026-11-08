@@ -72,10 +72,7 @@ import { NotificationsSettingsComponent } from "../autofill/popup/settings/notif
 import { PremiumV2Component } from "../billing/popup/settings/premium-v2.component";
 import { HealthRiskCategoryDetailComponent } from "../dirt/health/popup/health-risk-category-detail.component";
 import { HealthComponent } from "../dirt/health/popup/health.component";
-import {
-  canAccessHealth,
-  canAccessHealthDetail,
-} from "../dirt/health/popup/services/health-access.service";
+import { canAccessHealth } from "../dirt/health/popup/services/health-access.service";
 import { PhishingWarningComponent } from "../dirt/phishing-detection/popup/phishing-warning.component";
 import { ProtectedByComponent } from "../dirt/phishing-detection/popup/protected-by-component";
 import BrowserPopupUtils from "../platform/browser/browser-popup-utils";
@@ -856,7 +853,7 @@ const routes: Routes = [
   {
     path: "health/:category",
     component: HealthRiskCategoryDetailComponent,
-    canActivate: [authGuard, canAccessHealth, canAccessHealthDetail],
+    canActivate: [authGuard, canAccessHealth],
     data: { elevation: 1 } satisfies RouteDataProperties,
   },
   {

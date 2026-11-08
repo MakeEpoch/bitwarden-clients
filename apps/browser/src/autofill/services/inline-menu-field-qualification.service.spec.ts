@@ -21,8 +21,7 @@ describe("InlineMenuFieldQualificationService", () => {
   });
 
   describe("isFieldForLoginForm", () => {
-    it("does not disqualify totp fields for premium users", () => {
-      inlineMenuFieldQualificationService["premiumEnabled"] = true;
+    it("qualifies a TOTP input regardless of subscription", () => {
       const field = mock<AutofillField>({
         type: "text",
         autoCompleteType: "one-time-code",
@@ -36,10 +35,9 @@ describe("InlineMenuFieldQualificationService", () => {
       );
     });
 
-    it("disqualifies totp fields for non-premium users", () => {
-      inlineMenuFieldQualificationService["premiumEnabled"] = false;
+    it("does not qualify a TOTP field that uses a password input", () => {
       const field = mock<AutofillField>({
-        type: "text",
+        type: "password",
         autoCompleteType: "one-time-code",
         htmlName: "totp",
         htmlID: "totp",

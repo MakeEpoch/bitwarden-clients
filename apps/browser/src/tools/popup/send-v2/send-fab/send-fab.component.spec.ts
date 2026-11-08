@@ -28,6 +28,8 @@ describe("SendFabComponent", () => {
   const ACTIVE_ACCOUNT_ID = "account-1" as any;
 
   beforeEach(async () => {
+    allowedSendTypes$.next([SendType.Text, SendType.File]);
+    hasPremiumFromAnySource$.next(true);
     premiumUpgradePromptServiceMock = mock<PremiumUpgradePromptService>();
 
     await TestBed.configureTestingModule({
@@ -155,6 +157,26 @@ describe("SendFabComponent", () => {
       // The single-type branch renders one button; no bit-menu.
       expect(fixture.nativeElement.querySelector("bit-menu")).toBeNull();
       expect(buttons.length).toBe(1);
+    });
+
+    it("shows only Text when the account cannot send files", async () => {
+      hasPremiumFromAnySource$.next(false);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector("bit-menu")).toBeNull();
+      fixture.nativeElement.querySelector("button[type=button]").click();
+      await fixture.whenStable();
+      expect(router.navigate).toHaveBeenCalledWith(["/add-send"], {
+        queryParams: { type: SendType.Text, isNew: true },
+      });
+    });
+
+    it("hides the create button when policy allows only files and the account cannot send them", () => {
+      allowedSendTypes$.next([SendType.File]);
+      hasPremiumFromAnySource$.next(false);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector("button")).toBeNull();
     });
 
     it("shows a menu trigger when both send types are allowed", () => {
