@@ -5,6 +5,7 @@ import {
   EMPTY,
   exhaustMap,
   first,
+  firstValueFrom,
   from,
   map,
   Observable,
@@ -32,6 +33,7 @@ import {
   PHISHING_MANIFEST_URL,
   PHISHING_PATCH_BASE_URL,
   PHISHING_PRIMARY_URL,
+  PUBLIC_PHISHING_URL,
 } from "../phishing-resources";
 
 import { PhishingIndexedDbService } from "./phishing-indexeddb.service";
@@ -53,6 +55,7 @@ export type PhishingDataMeta = {
   sha256?: string;
   /** SHA256 of sorted blocklist file (order-independent), used for integrity verification */
   sortedSha256?: string;
+  publicFeed?: { etag: string | null; slot: 0 | 1 };
 };
 
 /**
@@ -72,6 +75,7 @@ export const PHISHING_DOMAINS_META_KEY = new KeyDefinition<PhishingDataMeta>(
         applicationVersion: value?.applicationVersion ?? "",
         sha256: value?.sha256,
         sortedSha256: value?.sortedSha256,
+        publicFeed: value?.publicFeed,
       };
     },
   },
@@ -128,6 +132,7 @@ export class PhishingDataService {
     private globalStateProvider: GlobalStateProvider,
     private logService: LogService,
     private platformUtilsService: PlatformUtilsService,
+    private readonly usePublicFeed = false,
   ) {
     this.logService.debug("[PhishingDataService] Initializing service...");
     this.indexedDbService = new PhishingIndexedDbService(this.logService);
@@ -175,34 +180,42 @@ export class PhishingDataService {
     try {
       // Quick lookup: check direct presence of href in IndexedDB
       // Also check without trailing slash since browsers add it but DB entries may not have it
-      const urlHref = url.href;
+      const meta = this.usePublicFeed ? await firstValueFrom(this._phishingMetaState.state$) : null;
+      const slot = meta?.publicFeed?.slot;
+      if (this.usePublicFeed && slot == null) {
+        return false;
+      }
+      const indexedDb = slot == null ? this.indexedDbService : this.publicFeedDatabase(slot);
+      const lookupUrl = new URL(url);
+      lookupUrl.hash = "";
+      const urlHref = lookupUrl.href;
       const urlWithoutTrailingSlash = urlHref.endsWith("/") ? urlHref.slice(0, -1) : null;
 
-      let hasUrl = await this.indexedDbService.hasUrl(urlHref);
+      let hasUrl = await indexedDb.hasUrl(urlHref);
 
       if (!hasUrl && urlWithoutTrailingSlash) {
-        hasUrl = await this.indexedDbService.hasUrl(urlWithoutTrailingSlash);
+        hasUrl = await indexedDb.hasUrl(urlWithoutTrailingSlash);
       }
 
       // Check alternate protocol: block list may have http:// but browser navigated to https:// (or vice versa)
       if (!hasUrl) {
         const alternateHref = this.swapProtocol(urlHref);
         if (alternateHref) {
-          hasUrl = await this.indexedDbService.hasUrl(alternateHref);
+          hasUrl = await indexedDb.hasUrl(alternateHref);
 
           if (!hasUrl) {
             const alternateWithoutTrailingSlash = alternateHref.endsWith("/")
               ? alternateHref.slice(0, -1)
               : null;
             if (alternateWithoutTrailingSlash) {
-              hasUrl = await this.indexedDbService.hasUrl(alternateWithoutTrailingSlash);
+              hasUrl = await indexedDb.hasUrl(alternateWithoutTrailingSlash);
             }
           }
         }
       }
 
       if (hasUrl) {
-        this.logService.info("[PhishingDataService] Found phishing URL: " + urlHref);
+        this.logService.info("[PhishingDataService] Found a listed phishing URL");
         return true;
       }
     } catch (err) {
@@ -406,7 +419,7 @@ export class PhishingDataService {
       const startTime = Date.now();
       return from(this._performDeltaSync(previous)).pipe(
         concatMap((result) => {
-          if (result.updated) {
+          if (result.updated || (this.usePublicFeed && result.meta !== previous)) {
             return from(this._phishingMetaState.update(() => result.meta)).pipe(
               tap(() => {
                 const elapsed = Date.now() - startTime;
@@ -445,6 +458,10 @@ export class PhishingDataService {
     previous: PhishingDataMeta | null,
   ): Promise<{ meta: PhishingDataMeta; updated: boolean }> {
     const applicationVersion = await this.platformUtilsService.getApplicationVersion();
+
+    if (this.usePublicFeed) {
+      return this.updatePublicFeed(previous, applicationVersion);
+    }
 
     if (applicationVersion !== previous?.applicationVersion) {
       this.logService.info("[PhishingDataService] App version changed — performing full update");
@@ -492,6 +509,60 @@ export class PhishingDataService {
         applicationVersion,
         sha256: manifest.full_list.sha256,
         sortedSha256: manifest.full_list.sorted_sha256,
+      },
+      updated: true,
+    };
+  }
+
+  private publicFeedDatabase(slot: 0 | 1): PhishingIndexedDbService {
+    return new PhishingIndexedDbService(this.logService, `bitwarden-public-phishing-${slot}`);
+  }
+
+  private async updatePublicFeed(
+    previous: PhishingDataMeta | null,
+    applicationVersion: string,
+  ): Promise<{ meta: PhishingDataMeta; updated: boolean }> {
+    const feed = previous?.publicFeed;
+    if (previous && feed && Date.now() - previous.timestamp < this.UPDATE_INTERVAL_DURATION) {
+      return { meta: previous, updated: false };
+    }
+    const response = await this.apiService.nativeFetch(
+      new Request(PUBLIC_PHISHING_URL, {
+        headers: feed?.etag ? { "If-None-Match": feed.etag } : {},
+        credentials: "omit",
+        redirect: "error",
+        signal: AbortSignal.timeout(120_000),
+      }),
+    );
+
+    if (response.status === 304 && previous && feed) {
+      return { meta: { ...previous, timestamp: Date.now(), applicationVersion }, updated: false };
+    }
+    if (!response.ok || !response.body) {
+      throw new Error(`Public phishing feed request failed with status ${response.status}`);
+    }
+
+    // Build in the inactive database. Lookups keep using the last complete list
+    // until its replacement finishes and the new slot is published.
+    const slot = feed?.slot === 0 ? 1 : 0;
+    const hash = await this.publicFeedDatabase(slot).saveUrlsFromStream(response.body, (line) => {
+      const url = URL.parse(line.trim());
+      if (!url || (url.protocol !== "http:" && url.protocol !== "https:")) {
+        return null;
+      }
+      url.hash = "";
+      return url.href;
+    });
+    if (!hash) {
+      throw new Error("The public phishing feed could not be loaded");
+    }
+
+    return {
+      meta: {
+        checksum: "",
+        timestamp: Date.now(),
+        applicationVersion,
+        publicFeed: { etag: response.headers.get("ETag"), slot },
       },
       updated: true,
     };

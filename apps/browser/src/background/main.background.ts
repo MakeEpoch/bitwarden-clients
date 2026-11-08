@@ -250,7 +250,6 @@ import { FolderService } from "@bitwarden/common/vault/services/folder/folder.se
 import { NoopRevealedCipherService } from "@bitwarden/common/vault/services/noop-revealed-cipher.service";
 import { RestrictedItemTypesService } from "@bitwarden/common/vault/services/restricted-item-types.service";
 import { SearchService } from "@bitwarden/common/vault/services/search.service";
-import { TotpService } from "@bitwarden/common/vault/services/totp.service";
 import { VaultSettingsService } from "@bitwarden/common/vault/services/vault-settings/vault-settings.service";
 import { DefaultTaskService, TaskService } from "@bitwarden/common/vault/tasks";
 import {
@@ -378,6 +377,7 @@ import { WebmapperDraftService } from "../autofill/services/webmapper-draft.serv
 import { shouldAutoCopyTotp } from "../autofill/types/fill-result";
 import { trackGeneratedCredential } from "../autofill/utils/credential-history-utils";
 import { SafariApp } from "../browser/safariApp";
+import { LocalPasswordRiskNotifications } from "../dirt/health/background/local-password-risk-notifications";
 import { PhishingDataService } from "../dirt/phishing-detection/services/phishing-data.service";
 import { PhishingDetectionService } from "../dirt/phishing-detection/services/phishing-detection.service";
 import { BackgroundBrowserBiometricsService } from "../key-management/biometrics/background-browser-biometrics.service";
@@ -423,6 +423,7 @@ import {
 } from "../platform/system-notifications/browser-system-notification.service";
 import { fromChromeRuntimeMessaging } from "../platform/utils/from-chrome-runtime-messaging";
 import { AtRiskCipherBadgeUpdaterService } from "../vault/services/at-risk-cipher-badge-updater.service";
+import { BrowserTotpService } from "../vault/services/browser-totp.service";
 
 import CommandsBackground from "./commands.background";
 import IdleBackground from "./idle.background";
@@ -1345,7 +1346,7 @@ export default class MainBackground {
       this.authService,
       this.accountService,
     );
-    this.totpService = new TotpService(this.sdkService);
+    this.totpService = new BrowserTotpService(this.sdkService);
 
     this.scriptInjectorService = new BrowserScriptInjectorService(
       this.domainSettingsService,
@@ -1355,6 +1356,16 @@ export default class MainBackground {
     this.autofillLifecycleService = new DefaultAutofillLifecycleService(
       this.authService,
       this.logService,
+    );
+    // The notification service is initialized before any autofill messages are handled.
+    const passwordRiskNotifications = new LocalPasswordRiskNotifications(
+      this.accountService,
+      this.authService,
+      this.cipherService,
+      this.passwordStrengthService,
+      this.i18nService,
+      this.logService,
+      () => this.systemNotificationService,
     );
     this.autofillService = new AutofillService(
       this.cipherService,
@@ -1372,6 +1383,7 @@ export default class MainBackground {
       this.messageListener,
       this.animationControlService,
       this.autofillLifecycleService,
+      (cipher, userId) => void passwordRiskNotifications.notifyAfterFill(cipher, userId),
     );
     this.autofillOrchestrator = new DefaultAutofillOrchestrator(
       this.autofillLifecycleService,
@@ -1622,7 +1634,6 @@ export default class MainBackground {
       this.messageListener,
       this.accountService,
       this.lockService,
-      this.billingAccountProfileStateService,
       this.browserInitialInstallService,
       this.autofillLifecycleService,
       this.defaultPasswordManagerPromptStateAccessor,
@@ -1728,6 +1739,7 @@ export default class MainBackground {
       this.authService,
       this.cipherService,
       this.totpService,
+      (cipher) => this.autofillService.canUseTotp(cipher),
       this.eventCollectionService,
       this.userVerificationService,
       this.accountService,
@@ -1766,7 +1778,7 @@ export default class MainBackground {
       this.autofillSettingsService,
       this.i18nService,
       this.logService,
-      this.billingAccountProfileStateService,
+      (cipher) => this.autofillService.canUseTotp(cipher),
       this.accountService,
       this.restrictedItemTypesService,
       this.configService,
@@ -1805,6 +1817,7 @@ export default class MainBackground {
       this.globalStateProvider,
       this.logService,
       this.platformUtilsService,
+      true,
     );
 
     this.phishingDetectionSettingsService = new PhishingDetectionSettingsService(
@@ -1815,6 +1828,7 @@ export default class MainBackground {
       this.organizationService,
       this.platformUtilsService,
       this.stateProvider,
+      true,
     );
 
     this.phishingDetectionService = new PhishingDetectionService(

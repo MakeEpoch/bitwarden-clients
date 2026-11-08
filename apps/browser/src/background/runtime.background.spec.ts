@@ -94,7 +94,6 @@ function createRuntimeBackground({
     undefined as any, // messageListener
     accountService,
     undefined as any, // lockService
-    undefined as any, // billingAccountProfileStateService
     undefined as any, // browserInitialInstallService
     autofillLifecycleService as any,
     undefined as any, // defaultPasswordManagerPromptStateAccessor
@@ -595,7 +594,6 @@ describe("RuntimeBackground logout dispatch", () => {
       undefined as any,
       undefined as any,
       mock<LogService>(),
-      undefined as any,
       undefined as any,
       undefined as any,
       undefined as any,

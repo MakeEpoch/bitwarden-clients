@@ -8467,6 +8467,18 @@
   "introducingHealth": {
     "message": "Introducing Health"
   },
+  "localPasswordWeak": {
+    "message": "The password just filled is weak. Update it in your vault."
+  },
+  "localPasswordReused": {
+    "message": "The password just filled is reused. Update it in your vault."
+  },
+  "localPasswordWeakAndReused": {
+    "message": "The password just filled is weak and reused. Update it in your vault."
+  },
+  "localHealthBreachPrivacy": {
+    "message": "The breach check sends only the first five characters of each password hash to Have I Been Pwned."
+  },
   "healthIntroDescription": {
     "message": "Monitor and improve your vault health by fixing passwords that are exposed, weak, and reused."
   },

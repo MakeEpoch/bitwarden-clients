@@ -2,16 +2,13 @@ import { Component, ChangeDetectionStrategy, computed, inject, effect } from "@a
 import { takeUntilDestroyed, toObservable, toSignal } from "@angular/core/rxjs-interop";
 import { filter, map, of, switchMap, take } from "rxjs";
 
-import { PremiumUpgradeDialogComponent } from "@bitwarden/angular/billing/components";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import {
   VAULT_HEALTH_REPORT_IDLE,
   VaultHealthReportStatus,
 } from "@bitwarden/common/dirt/vault-health/models";
 import { VaultHealthReportService } from "@bitwarden/common/dirt/vault-health/services";
 import { filterOutNullish } from "@bitwarden/common/vault/utils/observable-utilities";
-import { DialogService } from "@bitwarden/components";
 import { I18nPipe } from "@bitwarden/ui-common";
 
 import { CurrentAccountComponent } from "../../../auth/popup/account-switching/current-account.component";
@@ -47,8 +44,6 @@ export class HealthComponent {
   readonly healthAccessService = inject(HealthAccessService);
   private readonly vaultHealthReportService = inject(VaultHealthReportService);
   private readonly healthScanService = inject(HealthScanService);
-  private readonly billingAccountProfileStateService = inject(BillingAccountProfileStateService);
-  private readonly dialogService = inject(DialogService);
 
   readonly userId = toSignal(
     this.accountService.activeAccount$.pipe(map((account) => account?.id)),
@@ -68,23 +63,6 @@ export class HealthComponent {
       ),
     ),
     { initialValue: false },
-  );
-
-  /**
-   * Whether Health details are locked behind Premium. Starts locked so a free
-   * user never briefly sees navigable categories before the check resolves.
-   */
-  protected readonly locked = toSignal(
-    toObservable(this.userId).pipe(
-      switchMap((userId) =>
-        userId
-          ? this.billingAccountProfileStateService
-              .hasPremiumFromAnySource$(userId)
-              .pipe(map((hasPremium) => !hasPremium))
-          : of(true),
-      ),
-    ),
-    { initialValue: true },
   );
 
   /** The latest report for the active user and where its generation got to. */
@@ -153,11 +131,6 @@ export class HealthComponent {
       }
     });
   }
-
-  /** Sends a free user into the premium upgrade flow from the Health Overview. */
-  protected readonly handleUpgrade = () => {
-    PremiumUpgradeDialogComponent.open(this.dialogService);
-  };
 
   readonly handleHealthScan = async () => {
     const userId = this.userId();

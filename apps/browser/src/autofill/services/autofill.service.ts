@@ -119,6 +119,7 @@ export default class AutofillService implements AutofillServiceInterface {
     private messageListener: MessageListener,
     private animationControlService: AnimationControlService,
     private autofillLifecycleService: AutofillLifecycleService,
+    private onLoginFilled?: (cipher: CipherView, userId: UserId) => void,
   ) {
     this.enableInlineMenuAnimation$ = this.animationControlService.enableInlineMenuAnimation$;
     this.enableNotificationAnimation$ = this.animationControlService.enableNotificationAnimation$;
@@ -432,6 +433,26 @@ export default class AutofillService implements AutofillServiceInterface {
     return await firstValueFrom(this.autofillSettingsService.autoCopyTotp$);
   }
 
+  async canUseTotp(cipher: CipherView): Promise<boolean> {
+    if (
+      cipher.type !== CipherType.Login ||
+      !cipher.login?.totp ||
+      (cipher.organizationId != null && !cipher.viewPassword)
+    ) {
+      return false;
+    }
+
+    const account = await firstValueFrom(this.accountService.activeAccount$);
+    return (
+      !!account?.id &&
+      ((this.totpService.canGenerateForPersonalVault && cipher.organizationId == null) ||
+        cipher.organizationUseTotp ||
+        (await firstValueFrom(
+          this.billingAccountProfileStateService.hasPremiumFromAnySource$(account.id),
+        )))
+    );
+  }
+
   /**
    * Gets the autofill on page load setting from the autofill settings service.
    */
@@ -486,16 +507,8 @@ export default class AutofillService implements AutofillServiceInterface {
     }
 
     const activeAccount = await firstValueFrom(this.accountService.activeAccount$);
-    let canAccessPremium = false;
-    if (activeAccount?.id) {
-      canAccessPremium = await firstValueFrom(
-        this.billingAccountProfileStateService.hasPremiumFromAnySource$(activeAccount.id),
-      );
-    }
     const defaultUriMatch = await this.getDefaultUriMatchStrategy();
-
-    // check for premium subscription entitlement or organizational policy
-    const canUseTotp = canAccessPremium || options.cipher.organizationUseTotp;
+    const canUseTotp = await this.canUseTotp(options.cipher);
 
     const outcomes = await Promise.all(
       options.pageDetails.map(async (pd): Promise<AutofillOutcome> => {
@@ -585,6 +598,9 @@ export default class AutofillService implements AutofillServiceInterface {
         EventType.Cipher_ClientAutofilled,
         options.cipher.id,
       );
+      if (activeAccount?.id && options.cipher.type === CipherType.Login) {
+        this.onLoginFilled?.(options.cipher, activeAccount.id);
+      }
     }
 
     if (canUseTotp) {

@@ -121,6 +121,7 @@ describe("ContextMenuClickedHandler", () => {
       authService,
       cipherService,
       totpService,
+      async () => true,
       eventCollectionService,
       userVerificationService,
       accountService,

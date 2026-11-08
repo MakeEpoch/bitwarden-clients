@@ -1,6 +1,5 @@
 import AutofillField from "../models/autofill-field";
 import AutofillPageDetails from "../models/autofill-page-details";
-import { sendExtensionMessage } from "../utils";
 import {
   fieldContainsKeyword,
   getSubmitButtonKeywordsSet,
@@ -129,7 +128,6 @@ export class InlineMenuFieldQualificationService implements InlineMenuFieldQuali
     this.identityPostalCodeAutocompleteValue,
   ]);
   private totpFieldAutocompleteValue = "one-time-code";
-  private premiumEnabled = false;
 
   /**
    * Validates the provided field to indicate if the field is a new email field used for account creation/registration.
@@ -155,12 +153,6 @@ export class InlineMenuFieldQualificationService implements InlineMenuFieldQuali
     return false;
   }
 
-  constructor() {
-    void sendExtensionMessage("getUserPremiumStatus").then((premiumStatus) => {
-      this.premiumEnabled = !!premiumStatus?.result;
-    });
-  }
-
   /**
    * Validates the provided field as a field for a login form.
    *
@@ -168,16 +160,9 @@ export class InlineMenuFieldQualificationService implements InlineMenuFieldQuali
    * @param pageDetails - The details of the page that the field is on.
    */
   isFieldForLoginForm(field: AutofillField, pageDetails: AutofillPageDetails): boolean {
-    /**
-     * Totp inline menu is available only for premium users.
-     */
-    if (this.premiumEnabled) {
-      const isTotpField = this.isTotpField(field);
-      // Autofill does not fill totp inputs with a "password" `type` attribute value
-      const passwordType = field.type === "password";
-      if (isTotpField && !passwordType) {
-        return true;
-      }
+    // Autofill does not fill TOTP inputs with a password type.
+    if (field.type !== "password" && this.isTotpField(field)) {
+      return true;
     }
 
     const isCurrentPasswordField = this.isCurrentPasswordField(field);

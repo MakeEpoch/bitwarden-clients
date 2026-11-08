@@ -37,6 +37,7 @@ export class PhishingDetectionSettingsService implements PhishingDetectionSettin
     private organizationService: OrganizationService,
     private platformService: PlatformUtilsService,
     private stateProvider: StateProvider,
+    private readonly useLocalProtection = false,
   ) {
     this.logService.debug(`[PhishingDetectionSettingsService] Initializing service...`);
     this.available$ = this.buildAvailablePipeline$().pipe(
@@ -89,6 +90,10 @@ export class PhishingDetectionSettingsService implements PhishingDetectionSettin
         `[PhishingDetectionSettingsService] Phishing detection is unavailable on Safari due to platform limitations`,
       );
       return of(false);
+    }
+
+    if (this.useLocalProtection) {
+      return this.accountService.activeAccount$.pipe(map((account) => !!account?.id));
     }
 
     return combineLatest([

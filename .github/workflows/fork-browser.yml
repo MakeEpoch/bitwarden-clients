@@ -1,0 +1,111 @@
+name: Fork Browser
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '27 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-browser-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.repository == 'MakeEpoch/bitwarden-clients'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      candidate: ${{ steps.candidate.outputs.candidate }}
+      upstream: ${{ steps.candidate.outputs.upstream }}
+    env:
+      HUSKY: '0'
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare merge candidate
+        id: candidate
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git fetch --no-tags https://github.com/bitwarden/clients.git refs/heads/main
+          upstream=$(git rev-parse FETCH_HEAD)
+          candidate=$(bash scripts/fork-browser-merge.sh "$GITHUB_SHA" "$upstream")
+          git checkout --detach "$candidate"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test local browser security
+        run: |
+          npm test -w @bitwarden/browser -- --runInBand --runTestsByPath \
+            src/autofill/background/overlay.background.spec.ts \
+            src/autofill/browser/context-menu-clicked-handler.spec.ts \
+            src/autofill/browser/main-context-menu-handler.spec.ts \
+            src/autofill/services/autofill.service.spec.ts \
+            src/autofill/services/inline-menu-field-qualification.service.spec.ts \
+            src/dirt/health/background/local-password-risk-notifications.spec.ts \
+            src/dirt/health/popup/health.component.spec.ts \
+            src/dirt/health/popup/services/health-access.service.spec.ts \
+            src/dirt/phishing-detection/services/phishing-data.service.spec.ts \
+            src/dirt/phishing-detection/services/phishing-detection.service.spec.ts \
+            src/dirt/phishing-detection/services/phishing-indexeddb.service.spec.ts \
+            src/tools/popup/send-v2/send-fab/send-fab.component.spec.ts \
+            src/vault/popup/components/vault/attachments/open-attachments/open-attachments.component.spec.ts
+
+      - name: Build GPL Chrome extension
+        run: |
+          rm -rf bitwarden_license node_modules/@bitwarden/commercial-sdk-internal
+          npm run dist:chrome -w @bitwarden/browser
+          unzip -tq apps/browser/dist/dist-chrome.zip
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: makeepoch-chrome-${{ steps.candidate.outputs.candidate || github.sha }}
+          path: apps/browser/dist/dist-chrome.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  promote:
+    if: github.repository == 'MakeEpoch/bitwarden-clients' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.FORK_SYNC_TOKEN || github.token }}
+
+      - name: Promote the tested commit and upstream snapshot
+        env:
+          EXPECTED_CANDIDATE: ${{ needs.package.outputs.candidate }}
+          UPSTREAM_SHA: ${{ needs.package.outputs.upstream }}
+        run: |
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main \
+            refs/heads/upstream/main:refs/remotes/origin/upstream/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          git fetch --no-tags https://github.com/bitwarden/clients.git "$UPSTREAM_SHA"
+          git merge-base --is-ancestor refs/remotes/origin/upstream/main "$UPSTREAM_SHA"
+          candidate=$(bash scripts/fork-browser-merge.sh "$GITHUB_SHA" "$UPSTREAM_SHA")
+          test "$candidate" = "$EXPECTED_CANDIDATE"
+          git push --atomic origin \
+            "$candidate:refs/heads/main" \
+            "$UPSTREAM_SHA:refs/heads/upstream/main"

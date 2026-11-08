@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { Router } from "@angular/router";
 import { map, of, switchMap } from "rxjs";
@@ -28,7 +28,7 @@ export class SendFabComponent {
 
   protected readonly sendType = SendType;
 
-  protected readonly allowedSendTypes = toSignal(this.sendPolicyService.allowedSendTypes$, {
+  private readonly policySendTypes = toSignal(this.sendPolicyService.allowedSendTypes$, {
     initialValue: [SendType.Text, SendType.File],
   });
 
@@ -44,6 +44,10 @@ export class SendFabComponent {
       }),
     ),
     { initialValue: true },
+  );
+
+  protected readonly allowedSendTypes = computed(() =>
+    this.policySendTypes().filter((type) => type !== SendType.File || !this.hasNoPremium()),
   );
 
   protected async navigateToTextSend(): Promise<void> {
@@ -63,7 +67,7 @@ export class SendFabComponent {
   }
 
   protected async navigateToRestrictedSend(): Promise<void> {
-    const [allowed] = this.allowedSendTypes();
+    const [allowed] = this.policySendTypes();
     if (allowed === SendType.File) {
       await this.navigateToFileSend();
     } else {

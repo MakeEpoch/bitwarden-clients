@@ -225,7 +225,9 @@ export class CopyCipherFieldService {
 
     return (
       !!login?.totp &&
-      (cipher.organizationUseTotp ||
+      (cipher.organizationId == null || cipher.viewPassword) &&
+      ((this.totpService.canGenerateForPersonalVault && cipher.organizationId == null) ||
+        cipher.organizationUseTotp ||
         (await firstValueFrom(
           this.billingAccountProfileStateService.hasPremiumFromAnySource$(activeAccount.id),
         )))

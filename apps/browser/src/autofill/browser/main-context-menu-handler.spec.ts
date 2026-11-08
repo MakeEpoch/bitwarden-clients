@@ -16,7 +16,6 @@ import {
   SEPARATOR_ID,
 } from "@bitwarden/common/autofill/constants";
 import { AutofillSettingsServiceAbstraction } from "@bitwarden/common/autofill/services/autofill-settings.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { LogService } from "@bitwarden/common/platform/abstractions/log.service";
@@ -84,7 +83,7 @@ describe("context-menu", () => {
   let autofillSettingsService: MockProxy<AutofillSettingsServiceAbstraction>;
   let i18nService: MockProxy<I18nService>;
   let logService: MockProxy<LogService>;
-  let billingAccountProfileStateService: MockProxy<BillingAccountProfileStateService>;
+  let canUseTotp: jest.Mock<Promise<boolean>, [CipherView]>;
   let accountService: MockProxy<AccountService>;
   let configService: MockProxy<ConfigService>;
   let restricted$: BehaviorSubject<RestrictedCipherType[]>;
@@ -103,7 +102,7 @@ describe("context-menu", () => {
     autofillSettingsService = mock();
     i18nService = mock();
     logService = mock();
-    billingAccountProfileStateService = mock();
+    canUseTotp = jest.fn(async (cipher: CipherView) => !!cipher.login?.totp);
     accountService = mock();
     configService = mock();
     restricted$ = new BehaviorSubject<RestrictedCipherType[]>([]);
@@ -132,7 +131,7 @@ describe("context-menu", () => {
       autofillSettingsService,
       i18nService,
       logService,
-      billingAccountProfileStateService,
+      canUseTotp,
       accountService,
       restrictedItemTypesService,
       configService,
@@ -164,49 +163,30 @@ describe("context-menu", () => {
       expect(removeAllSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("has menu enabled, but does not have premium", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(false));
-
-      const createdMenu = await sut.init();
-      expect(createdMenu).toBeTruthy();
-      expect(createSpy).toHaveBeenCalledTimes(10);
-    });
-
-    it("has menu enabled and has premium", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(true));
-
-      const createdMenu = await sut.init();
-      expect(createdMenu).toBeTruthy();
+    it("adds the verification code menu without checking subscription", async () => {
+      expect(await sut.init()).toBeTruthy();
       expect(createSpy).toHaveBeenCalledTimes(11);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: COPY_VERIFICATION_CODE_ID }),
+        expect.any(Function),
+      );
     });
 
-    it("has menu enabled and has premium, but card type is restricted", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(true));
-
+    it("hides the card menu when card items are restricted", async () => {
       restricted$.next([{ cipherType: CipherType.Card, allowViewOrgIds: [] }]);
 
-      const createdMenu = await sut.init();
-      expect(createdMenu).toBeTruthy();
+      expect(await sut.init()).toBeTruthy();
       expect(createSpy).toHaveBeenCalledTimes(10);
-    });
-    it("has menu enabled, does not have premium, and card type is restricted", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(false));
-      restricted$.next([{ cipherType: CipherType.Card, allowViewOrgIds: [] }]);
-
-      const createdMenu = await sut.init();
-      expect(createdMenu).toBeTruthy();
-      expect(createSpy).toHaveBeenCalledTimes(9);
     });
 
     it("adds triage separator and menu item when the fillAssistDevTools dev flag is enabled", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(false));
       mockDevFlagEnabled.mockImplementation((flag) => flag === "fillAssistDevTools");
 
       const createdMenu = await sut.init();
       expect(createdMenu).toBeTruthy();
-      // 10 base items + 1 separator + 1 triage item + the webmapper tree (also
+      // 11 base items + 1 separator + 1 triage item + the webmapper tree (also
       // gated on fillAssistDevTools).
-      expect(createSpy).toHaveBeenCalledTimes(12 + webmapperContextMenuItems().length);
+      expect(createSpy).toHaveBeenCalledTimes(13 + webmapperContextMenuItems().length);
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({ id: AUTOFILL_TRIAGE_ID }),
         expect.any(Function),
@@ -218,12 +198,11 @@ describe("context-menu", () => {
     });
 
     it("does not add triage or webmapper items when the fillAssistDevTools dev flag is disabled", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(false));
       mockDevFlagEnabled.mockReturnValue(false);
 
       const createdMenu = await sut.init();
       expect(createdMenu).toBeTruthy();
-      expect(createSpy).toHaveBeenCalledTimes(10);
+      expect(createSpy).toHaveBeenCalledTimes(11);
       expect(createSpy).not.toHaveBeenCalledWith(
         expect.objectContaining({ id: AUTOFILL_TRIAGE_ID }),
         expect.any(Function),
@@ -274,7 +253,6 @@ describe("context-menu", () => {
     });
 
     it("create entry for each cipher piece", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(true));
       const optionId = "arbitraryString";
       await sut.loadOptions("TEST_TITLE", optionId, createCipher());
 
@@ -300,8 +278,6 @@ describe("context-menu", () => {
     });
 
     it("creates a login/unlock item for each context menu action option when user is not authenticated", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(true));
-
       const optionId = "NOOP";
       await sut.loadOptions("TEST_TITLE", optionId);
 
@@ -331,7 +307,6 @@ describe("context-menu", () => {
 
   describe("removeBlockedUriMenuItems", () => {
     it("removes menu items that require code injection", async () => {
-      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(true));
       autofillSettingsService.enableContextMenu$ = of(true);
       tokenService.hasAccessToken$.mockReturnValue(of(true));
 

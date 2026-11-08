@@ -879,7 +879,7 @@ describe("AutofillService", () => {
           allowTotpAutofill: autofillOptions.allowTotpAutofill || false,
           autoSubmitLogin: autofillOptions.allowTotpAutofill || false,
           cipher: autofillOptions.cipher,
-          canAccessTotp: true,
+          canAccessTotp: false,
           tabUrl: autofillOptions.tab.url,
           defaultUriMatch: 0,
         },
@@ -1121,6 +1121,21 @@ describe("AutofillService", () => {
       await autofillService.doAutoFill(autofillOptions);
 
       expect(autofillOptions.cipher.login.totp).toBe("totp");
+    });
+
+    it("generates a personal TOTP code locally for a free account", async () => {
+      autofillOptions.cipher.organizationId = null;
+      autofillOptions.cipher.login.totp = "totp";
+      Object.defineProperty(totpService, "canGenerateForPersonalVault", { value: true });
+      billingAccountProfileStateService.hasPremiumFromAnySource$.mockReturnValue(of(false));
+      jest.spyOn(autofillService, "getShouldAutoCopyTotp").mockResolvedValue(true);
+      totpService.getCode$.mockReturnValue(of({ code: "123456", period: 30 }));
+
+      await expect(autofillService.doAutoFill(autofillOptions)).resolves.toEqual({
+        outcome: AutofillOutcome.Filled,
+        totp: "123456",
+        canAutoCopyTotp: true,
+      });
     });
 
     it("returns a TOTP value for a non-premium user when the organization uses TOTP", async () => {

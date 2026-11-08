@@ -20,7 +20,6 @@ import {
   SEPARATOR_ID,
 } from "@bitwarden/common/autofill/constants";
 import { AutofillSettingsServiceAbstraction } from "@bitwarden/common/autofill/services/autofill-settings.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import { FeatureFlag } from "@bitwarden/common/enums/feature-flag.enum";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
@@ -70,7 +69,6 @@ export class MainContextMenuHandler {
         id: COPY_VERIFICATION_CODE_ID,
         parentId: ROOT_ID,
         title: this.i18nService.t("copyVerificationCode"),
-        requiresPremiumAccess: true,
       },
       {
         id: nextSeparator(),
@@ -181,7 +179,7 @@ export class MainContextMenuHandler {
     private autofillSettingsService: AutofillSettingsServiceAbstraction,
     private i18nService: I18nService,
     private logService: LogService,
-    private billingAccountProfileStateService: BillingAccountProfileStateService,
+    private canUseTotp: (cipher: CipherView) => Promise<boolean>,
     private accountService: AccountService,
     private restrictedItemTypesService: RestrictedItemTypesService,
     private configService: ConfigService,
@@ -204,13 +202,6 @@ export class MainContextMenuHandler {
     this.initRunning = true;
 
     try {
-      const account = await firstValueFrom(this.accountService.activeAccount$);
-      const hasPremium =
-        !!account?.id &&
-        (await firstValueFrom(
-          this.billingAccountProfileStateService.hasPremiumFromAnySource$(account.id),
-        ));
-
       const isCardRestricted = (
         await firstValueFrom(this.restrictedItemTypesService.restricted$)
       ).some((rt) => rt.cipherType === CipherType.Card);
@@ -228,9 +219,6 @@ export class MainContextMenuHandler {
       const enabledFlags = new Set(uniqueFlags.filter((_, i) => flagResults[i]));
 
       let items = this.initContextMenuItems;
-      if (!hasPremium) {
-        items = items.filter((i) => !i.requiresPremiumAccess);
-      }
       if (isCardRestricted) {
         items = items.filter((i) => !i.id?.startsWith(AUTOFILL_CARD_ID));
       }
@@ -244,8 +232,6 @@ export class MainContextMenuHandler {
       items = items.filter((i) => !i.requiresDevFlag || devFlagEnabled(i.requiresDevFlag));
 
       for (const {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        requiresPremiumAccess, // destructuring these out of being passed to `create`
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         requiresUnblockedUri,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -371,13 +357,10 @@ export class MainContextMenuHandler {
         await createChildItem(COPY_USERNAME_ID);
       }
 
-      const account = await firstValueFrom(this.accountService.activeAccount$);
-      const canAccessPremium =
-        !!account?.id &&
-        (await firstValueFrom(
-          this.billingAccountProfileStateService.hasPremiumFromAnySource$(account.id),
-        ));
-      if (canAccessPremium && (!cipher || !Utils.isNullOrEmpty(cipher.login?.totp))) {
+      if (
+        (!cipher && optionId !== CREATE_LOGIN_ID) ||
+        (cipher?.type === CipherType.Login && (await this.canUseTotp(cipher)))
+      ) {
         await createChildItem(COPY_VERIFICATION_CODE_ID);
       }
 

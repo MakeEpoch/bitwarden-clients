@@ -10,19 +10,21 @@ type PhishingUrlRecord = { url: string };
  * Stores URLs as individual rows.
  */
 export class PhishingIndexedDbService {
-  private readonly DB_NAME = "bitwarden-phishing";
   private readonly STORE_NAME = "phishing-urls";
   private readonly DB_VERSION = 1;
   private readonly CHUNK_SIZE = 50000;
 
-  constructor(private logService: LogService) {}
+  constructor(
+    private logService: LogService,
+    private readonly databaseName = "bitwarden-phishing",
+  ) {}
 
   /**
    * Opens the IndexedDB database, creating the object store if needed.
    */
   private openDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+      const req = indexedDB.open(this.databaseName, this.DB_VERSION);
       req.onerror = () => reject(req.error);
       req.onsuccess = () => resolve(req.result);
       req.onupgradeneeded = (e) => {
@@ -290,16 +292,20 @@ export class PhishingIndexedDbService {
    * Computes SHA256 of the raw stream bytes for integrity verification.
    *
    * @param stream - ReadableStream of newline-delimited URLs
+   * @param parseUrl - Optional URL parser for a raw public feed
    * @returns hex SHA256 of the raw stream bytes, or empty string on error
    */
-  async saveUrlsFromStream(stream: ReadableStream<Uint8Array>): Promise<string> {
+  async saveUrlsFromStream(
+    stream: ReadableStream<Uint8Array>,
+    parseUrl?: (line: string) => string | null,
+  ): Promise<string> {
     this.logService.debug("[PhishingIndexedDbService] Saving urls to the store from stream...");
 
     let db: IDBDatabase | null = null;
     try {
       db = await this.openDatabase();
       await this.clearStore(db);
-      const sha256 = await this.processStream(db, stream);
+      const sha256 = await this.processStream(db, stream, parseUrl);
       this.logService.info(
         "[PhishingIndexedDbService] Finished saving urls to the store from stream.",
       );
@@ -321,12 +327,15 @@ export class PhishingIndexedDbService {
   private async processStream(
     db: IDBDatabase,
     stream: ReadableStream<Uint8Array>,
+    parseUrl?: (line: string) => string | null,
   ): Promise<string> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
     let urls: string[] = [];
     const rawChunks: Uint8Array[] = [];
+    const parse = parseUrl ?? ((line: string) => line.trim());
+    let hasUrls = false;
 
     try {
       while (true) {
@@ -344,9 +353,10 @@ export class PhishingIndexedDbService {
           // Split remaining buffer by newlines in case it contains multiple URLs
           const lines = buffer.split("\n");
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed) {
-              urls.push(trimmed);
+            const url = parse(line);
+            if (url) {
+              urls.push(url);
+              hasUrls = true;
             }
           }
           if (urls.length > 0) {
@@ -359,9 +369,10 @@ export class PhishingIndexedDbService {
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed) {
-            urls.push(trimmed);
+          const url = parse(line);
+          if (url) {
+            urls.push(url);
+            hasUrls = true;
           }
 
           if (urls.length >= this.CHUNK_SIZE) {
@@ -373,6 +384,10 @@ export class PhishingIndexedDbService {
       }
     } finally {
       reader.releaseLock();
+    }
+
+    if (parseUrl && !hasUrls) {
+      throw new Error("The phishing feed did not contain any URLs");
     }
 
     // Compute SHA256 of raw stream bytes

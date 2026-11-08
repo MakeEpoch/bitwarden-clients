@@ -232,7 +232,9 @@ describe("PhishingDetectionService", () => {
       emitNavEvent(1, "https://evil.com/path");
       await flushPromises();
       const redirectUrl: URL = (BrowserApi.navigateTabToUrl as jest.Mock).mock.calls[0][1];
-      expect(redirectUrl.href).toContain("?phishingUrl=https://evil.com/path");
+      expect(new URLSearchParams(redirectUrl.hash.split("?")[1]).get("phishingUrl")).toBe(
+        "https://evil.com/path",
+      );
     });
   });
 

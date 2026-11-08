@@ -65,6 +65,59 @@ describe("PhishingDataService", () => {
     fetchChecksumSpy.mockResolvedValue("new-checksum");
   });
 
+  describe("public feed", () => {
+    beforeEach(() => {
+      service.dispose();
+      service = new PhishingDataService(
+        apiService,
+        taskSchedulerService,
+        fakeGlobalStateProvider,
+        logService,
+        platformUtilsService,
+        true,
+      );
+      jest.spyOn(service as any, "publicFeedDatabase").mockReturnValue(mockIndexedDbService);
+    });
+
+    it("stages the public list in the inactive slot before publishing its metadata", async () => {
+      const body = {} as ReadableStream;
+      apiService.nativeFetch.mockResolvedValue({
+        ok: true,
+        body,
+        headers: { get: () => '"latest"' },
+      } as Response);
+      mockIndexedDbService.saveUrlsFromStream.mockResolvedValue("new-list-hash");
+
+      const result = await service["_performDeltaSync"]({
+        checksum: "",
+        timestamp: 0,
+        applicationVersion: "1.0.0",
+        publicFeed: { etag: '"previous"', slot: 0 },
+      });
+
+      expect(apiService.nativeFetch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining("/Phishing-Database/Phishing.Database/"),
+        }),
+      );
+      expect(service["publicFeedDatabase"]).toHaveBeenCalledWith(1);
+      expect(mockIndexedDbService.saveUrlsFromStream).toHaveBeenCalledWith(
+        body,
+        expect.any(Function),
+      );
+      const [, parseUrl] = mockIndexedDbService.saveUrlsFromStream.mock.calls[0];
+      expect(parseUrl("HTTPS://Example.test/page#section")).toBe("https://example.test/page");
+      expect(parseUrl("<html>")).toBeNull();
+      expect(result.meta.publicFeed).toEqual({ etag: '"latest"', slot: 1 });
+    });
+
+    it("rejects a failed refresh without publishing a replacement list", async () => {
+      apiService.nativeFetch.mockResolvedValue({ status: 503, ok: false } as Response);
+      await expect(service["_performDeltaSync"](null)).rejects.toThrow("status 503");
+      expect(mockIndexedDbService.saveUrlsFromStream).not.toHaveBeenCalled();
+    });
+  });
+
   describe("initialization", () => {
     it("should initialize with IndexedDB service", () => {
       expect(service["indexedDbService"]).toBeDefined();
