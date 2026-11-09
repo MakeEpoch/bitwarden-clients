@@ -76,10 +76,13 @@ jobs:
             src/vault/popup/settings/vault-settings.component.spec.ts \
             src/vault/popup/components/vault/attachments/open-attachments/open-attachments.component.spec.ts
 
+      - run: python3 scripts/test-fork-browser-local-updater.py
+
       - name: Build GPL Chrome extension
         run: |
           rm -rf bitwarden_license node_modules/@bitwarden/commercial-sdk-internal
-          npm run dist:chrome -w @bitwarden/browser
+          npm run build:prod:chrome -w @bitwarden/browser
+          python3 scripts/package-fork-browser.py apps/browser/build apps/browser/dist/dist-chrome.zip
           unzip -tq apps/browser/dist/dist-chrome.zip
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

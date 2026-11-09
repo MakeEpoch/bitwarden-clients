@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish the signed Chrome package from a successful Fork Browser run on main.
+# Publish the local Chrome package and detached signature from a successful Fork Browser run on main.
 set -euo pipefail
 
 version=${1:?Usage: publish-fork-browser.sh VERSION RUN_ID}
@@ -29,12 +29,13 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 gh run download "$run_id" --repo "$repo" --name "$artifact" --dir "$work/build"
-python3 scripts/fork-browser-release.py "$work/build/dist-chrome.zip" "$work/release" \
+mkdir "$work/release"
+python3 scripts/fork-browser-local-release.py "$work/build/dist-chrome.zip" "$work/release" \
   --version "$version" --previous "${previous#makeepoch-v}" --signing-key "$key"
 
 (
-  echo '安装签名 CRX 后，Chrome 会通过 GitHub Release 接收后续更新。'
-  echo '设置页已移除升级横幅，不可用的归档入口不再显示。'
+  echo '本地解压版使用签名校验，通过配套更新器从 GitHub 接收新版。'
+  echo '安装包去除了调试映射，并让弹窗和后台共用两种 WASM SDK。'
   echo
   echo '[安装和更新说明](https://github.com/MakeEpoch/bitwarden-clients/blob/main/docs/makeepoch-browser.md)'
   echo
@@ -43,11 +44,11 @@ python3 scripts/fork-browser-release.py "$work/build/dist-chrome.zip" "$work/rel
   echo 'SHA-256'
   echo
   cd "$work/release"
-  sha256sum -- *.crx *.zip updates.xml | sed 's/^/    /'
+  sha256sum -- *.zip *.sig *.py | sed 's/^/    /'
 ) > "$work/release-notes.md"
 
 test "$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')" = "$candidate"
-assets=("$work/release/"*.crx "$work/release/"*.zip "$work/release/updates.xml")
+assets=("$work/release/"*.zip "$work/release/"*.sig "$work/release/"*.py)
 if existing=$(gh release view "$tag" --repo "$repo" --json isDraft,targetCommitish 2>/dev/null); then
   jq -e --arg commit "$candidate" '.isDraft and .targetCommitish == $commit' <<< "$existing" >/dev/null
   gh release upload "$tag" --repo "$repo" --clobber "${assets[@]}"

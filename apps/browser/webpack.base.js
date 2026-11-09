@@ -502,6 +502,9 @@ module.exports.buildConfig = function buildConfig(params) {
       target: target,
       output: {
         filename: "background.js",
+        ...(browser === "chrome" && params.configName === "OSS"
+          ? { webassemblyModuleFilename: mainConfig.output.webassemblyModuleFilename }
+          : {}),
         path: params.outputPath,
       },
       module: {

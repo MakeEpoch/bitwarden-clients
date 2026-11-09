@@ -24,33 +24,55 @@ the attachment management button are hidden when the account lacks their existin
   repository secret named `FORK_SYNC_TOKEN` using a token scoped to this repository with
   Contents and Workflows write access. The token is used only by the branch update job.
 
-Build locally with Node 24 and `npm ci`, then run `npm run dist:chrome -w @bitwarden/browser`.
-Extract `apps/browser/dist/dist-chrome.zip` and use Chrome's **Load unpacked** to select the
-directory containing `manifest.json`.
+Build locally with Node 24 and `npm ci`, then run:
 
-## Install and update the signed Chrome extension
-
-On Linux, download the signed `.crx` from the
-[latest release](https://github.com/MakeEpoch/bitwarden-clients/releases/latest) and install it
-from `chrome://extensions`. If browser policy requires a managed installation, use
-[`ExtensionInstallForcelist`](https://chromeenterprise.google/policies/#ExtensionInstallForcelist)
-with this value:
-
-```text
-aieoaondkkbpmemogejhhcgipjgllide;https://github.com/MakeEpoch/bitwarden-clients/releases/latest/download/updates.xml
+```sh
+npm run build:prod:chrome -w @bitwarden/browser
+python3 scripts/package-fork-browser.py apps/browser/build apps/browser/dist/dist-chrome.zip
 ```
 
-Chrome reads `updates.xml` periodically and installs a newer CRX after verifying its signature.
-Windows and macOS Chrome require an enterprise-managed configuration for this self-hosted
-installation. Chrome Web Store distribution follows its own update channel.
+The compact package excludes sourcemaps and shares identical WASM binaries between the popup
+and background. It keeps both SDK variants and the language resources.
 
-If you currently load the ZIP as an unpacked extension, install the signed CRX once and sign
-in again. The signed extension has its own stable identity and Chrome storage. Verify vault
-sync before removing the previous copy. The ZIP can still be used for development.
+## Install the local ZIP
 
-To publish an update, run **Fork Browser** on `main` with `current_main_only` enabled, then run
-`bash scripts/publish-fork-browser.sh VERSION RUN_ID`. The publisher uses the package from that
-run and the local signing key at `~/.local/share/makeepoch-vault/chrome-signing.pem`.
-For the same upstream version, increment the fourth component. Each signed release contains a
-CRX, a matching ZIP, and `updates.xml`. Keep a secure backup of the original private key to
-preserve the extension ID.
+Get the Chrome MV3 ZIP and `makeepoch-vault-local-updater.py` from the
+[latest release](https://github.com/MakeEpoch/bitwarden-clients/releases/latest).
+In `chrome://extensions`, enable developer mode and load the extracted directory once.
+Use a dedicated, fixed directory for the installed extension.
+
+If you already run an unpacked copy, keep its existing directory and ID. On Linux or macOS,
+register the updater with the exact directory and ID shown in Chrome:
+
+```sh
+python3 makeepoch-vault-local-updater.py install "/absolute/path/to/existing-extension" YOUR_EXTENSION_ID
+```
+
+For a copy loaded before local updates were introduced, close Chrome and apply the first update
+to the existing directory:
+
+```sh
+python3 makeepoch-vault-local-updater.py update YOUR_EXTENSION_ID
+```
+
+Restart Chrome. In **Settings → About**, choose **Enable local updates** and allow the native
+messaging permission. From then on Chrome checks about every two hours when the browser is idle
+and extension pages are closed. The updater verifies the package signature, stages the files,
+replaces the same directory, and reloads the extension. Chrome stores the vault session and
+settings under the original extension ID.
+
+To restore the previous files, close Chrome, run
+`python3 makeepoch-vault-local-updater.py rollback YOUR_EXTENSION_ID`, and restart Chrome.
+The updater skips the failed version until a newer release is available.
+
+This release channel uses an unpacked ZIP. The earlier CRX release is still available for
+managed installations. The local updater currently supports Google Chrome on Linux and macOS.
+
+## Publish a local update
+
+Run **Fork Browser** on `main` with `current_main_only` enabled, then run
+`bash scripts/publish-fork-browser.sh VERSION RUN_ID`. For the same upstream version, increment
+the fourth component. The release contains the compact ZIP, its detached signature, and the
+standalone updater. Keep the existing signing key at
+`~/.local/share/makeepoch-vault/chrome-signing.pem` backed up securely. The updater embeds the
+pinned public key and only installs verified releases.

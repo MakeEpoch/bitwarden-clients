@@ -6,6 +6,16 @@
   </popup-header>
 
   <bit-item-group>
+    @if (localBuild()) {
+      <bit-item>
+        <button type="button" bit-item-content (click)="enableLocalUpdates()">
+          {{ "makeEpochEnableLocalUpdates" | i18n }}
+          @if (localUpdateStatus(); as status) {
+            <span slot="secondary">{{ status | i18n }}</span>
+          }
+        </button>
+      </bit-item>
+    }
     <bit-item>
       <button type="button" bit-item-content (click)="troubleshoot()">
         {{ "troubleshooting" | i18n }}

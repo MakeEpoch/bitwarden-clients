@@ -1,4 +1,13 @@
 {
+  "makeEpochEnableLocalUpdates": {
+    "message": "Enable local updates"
+  },
+  "makeEpochLocalUpdateEnabled": {
+    "message": "Local updater connected. Updates run when Chrome is idle."
+  },
+  "makeEpochLocalUpdateHostRequired": {
+    "message": "Install the MakeEpoch local updater first."
+  },
   "appName": {
     "message": "Bitwarden"
   },

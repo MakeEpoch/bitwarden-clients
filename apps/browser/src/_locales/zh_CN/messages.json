@@ -1,4 +1,13 @@
 {
+  "makeEpochEnableLocalUpdates": {
+    "message": "启用本地自动更新"
+  },
+  "makeEpochLocalUpdateEnabled": {
+    "message": "已连接本地更新器，Chrome 空闲时检查更新。"
+  },
+  "makeEpochLocalUpdateHostRequired": {
+    "message": "请先安装 MakeEpoch 本地更新器。"
+  },
   "appName": {
     "message": "Bitwarden"
   },

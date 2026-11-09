@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component } from "@angular/core";
+import { Component, OnInit, signal } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import { firstValueFrom } from "rxjs";
 
@@ -10,6 +10,7 @@ import { CenterPositionStrategy, DialogService, ItemModule } from "@bitwarden/co
 import { TroubleshootingDialogComponent } from "@bitwarden/logging-angular";
 import { I18nPipe } from "@bitwarden/ui-common";
 
+import { isMakeEpochLocalBuild, localUpdateRequest } from "../../../../background/local-updates";
 import { BrowserApi } from "../../../../platform/browser/browser-api";
 import { PopOutComponent } from "../../../../platform/popup/components/pop-out.component";
 import { PopupHeaderComponent } from "../../../../platform/popup/layout/popup-header.component";
@@ -46,7 +47,28 @@ const RateUrls = {
     I18nPipe,
   ],
 })
-export class AboutPageV2Component {
+export class AboutPageV2Component implements OnInit {
+  protected readonly localBuild = signal(false);
+  protected readonly localUpdateStatus = signal<string | undefined>(undefined);
+
+  ngOnInit() {
+    void isMakeEpochLocalBuild().then((enabled) => this.localBuild.set(enabled));
+  }
+
+  protected async enableLocalUpdates() {
+    try {
+      if (!(await chrome.permissions.request({ permissions: ["nativeMessaging"] }))) {
+        return;
+      }
+      if ((await localUpdateRequest("status")) !== "connected") {
+        throw new Error("Local updater requires a reload");
+      }
+      this.localUpdateStatus.set("makeEpochLocalUpdateEnabled");
+    } catch {
+      this.localUpdateStatus.set("makeEpochLocalUpdateHostRequired");
+    }
+  }
+
   constructor(
     private dialogService: DialogService,
     private environmentService: EnvironmentService,
