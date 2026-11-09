@@ -1,19 +1,4 @@
 <popup-page>
-  @if (!(hasPremium$ | async)) {
-    <bit-callout [icon]="null">
-      {{ "unlockFeaturesWithPremium" | i18n }}
-      <button
-        bitLink
-        buttonType="primary"
-        class="tw-text-xs"
-        type="button"
-        (click)="openUpgradeDialog()"
-        [title]="'upgradeNow' | i18n"
-      >
-        {{ "upgradeNow" | i18n }}
-      </button>
-    </bit-callout>
-  }
   <popup-header slot="header" pageTitle="{{ 'settings' | i18n }}">
     <ng-container slot="end">
       <app-pop-out></app-pop-out>

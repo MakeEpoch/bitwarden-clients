@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '27 19 * * *'
   workflow_dispatch:
+    inputs:
+      current_main_only:
+        description: "Build the current main commit for a release without syncing upstream"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -34,7 +39,7 @@ jobs:
 
       - name: Prepare merge candidate
         id: candidate
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.current_main_only != true
         run: |
           git fetch --no-tags https://github.com/bitwarden/clients.git refs/heads/main
           upstream=$(git rev-parse FETCH_HEAD)
@@ -65,6 +70,10 @@ jobs:
             src/dirt/phishing-detection/services/phishing-detection.service.spec.ts \
             src/dirt/phishing-detection/services/phishing-indexeddb.service.spec.ts \
             src/tools/popup/send-v2/send-fab/send-fab.component.spec.ts \
+            src/tools/popup/settings/settings-v2.component.spec.ts \
+            src/vault/popup/components/vault/item-more-options/item-more-options.component.spec.ts \
+            src/vault/popup/settings/archive.component.spec.ts \
+            src/vault/popup/settings/vault-settings.component.spec.ts \
             src/vault/popup/components/vault/attachments/open-attachments/open-attachments.component.spec.ts
 
       - name: Build GPL Chrome extension
@@ -81,7 +90,7 @@ jobs:
           retention-days: 14
 
   promote:
-    if: github.repository == 'MakeEpoch/bitwarden-clients' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.repository == 'MakeEpoch/bitwarden-clients' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.current_main_only != true
     needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 10

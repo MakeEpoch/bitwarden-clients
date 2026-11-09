@@ -5,9 +5,7 @@ import { BehaviorSubject, combineLatest, firstValueFrom, map, Observable, switch
 import { filter } from "rxjs/operators";
 
 import { CollectionService } from "@bitwarden/admin-console/common";
-import { PremiumBadgeComponent } from "@bitwarden/angular/billing/components/premium-badge";
 import { JslibModule } from "@bitwarden/angular/jslib.module";
-import { BrowserPremiumUpgradePromptService } from "@bitwarden/browser/billing/popup/services/browser-premium-upgrade-prompt.service";
 import { OrganizationService } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
@@ -16,7 +14,6 @@ import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.servic
 import { CipherId, UserId } from "@bitwarden/common/types/guid";
 import { CipherArchiveService } from "@bitwarden/common/vault/abstractions/cipher-archive.service";
 import { CipherService } from "@bitwarden/common/vault/abstractions/cipher.service";
-import { PremiumUpgradePromptService } from "@bitwarden/common/vault/abstractions/premium-upgrade-prompt.service";
 import { CipherRepromptType, CipherType } from "@bitwarden/common/vault/enums";
 import { CipherAuthorizationService } from "@bitwarden/common/vault/services/cipher-authorization.service";
 import { RestrictedItemTypesService } from "@bitwarden/common/vault/services/restricted-item-types.service";
@@ -54,13 +51,9 @@ import {
     CommonModule,
     JslibModule,
     RouterModule,
-    PremiumBadgeComponent,
     IconModule,
     Vfo1I18nPipe,
     ShareLinkMenuItemDirective,
-  ],
-  providers: [
-    { provide: PremiumUpgradePromptService, useClass: BrowserPremiumUpgradePromptService },
   ],
 })
 export class ItemMoreOptionsComponent {

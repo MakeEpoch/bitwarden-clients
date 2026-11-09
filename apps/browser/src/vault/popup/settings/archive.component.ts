@@ -33,7 +33,6 @@ import {
   SvgComponent,
   ToastService,
   TypographyModule,
-  CardComponent,
   ButtonComponent,
   IconModule,
 } from "@bitwarden/components";
@@ -75,7 +74,6 @@ import { ROUTES_AFTER_EDIT_DELETION } from "../services/vault-popup-after-deleti
     SectionHeaderComponent,
     TypographyModule,
     OrgIconDirective,
-    CardComponent,
     ButtonComponent,
     IconModule,
     Vfo1I18nPipe,
@@ -155,17 +153,9 @@ export class ArchiveComponent {
     }),
   );
 
-  protected showSubscriptionEndedMessaging$ = this.userId$.pipe(
-    switchMap((userId) => this.cipherArchiveService.showSubscriptionEndedMessaging$(userId)),
-  );
-
   protected userHasPremium$ = this.userId$.pipe(
     switchMap((userId) => this.cipherArchiveService.userHasPremium$(userId)),
   );
-
-  async navigateToPremium() {
-    await this.router.navigate(["/premium"]);
-  }
 
   async view(cipher: CipherViewLike) {
     if (!(await this.canInteract(cipher))) {

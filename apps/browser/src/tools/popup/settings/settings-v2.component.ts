@@ -11,23 +11,14 @@ import {
   switchMap,
 } from "rxjs";
 
-import { PremiumUpgradeDialogComponent } from "@bitwarden/angular/billing/components";
 import { JslibModule } from "@bitwarden/angular/jslib.module";
 import { NudgesService, NudgeType } from "@bitwarden/angular/vault";
 import { AutomaticUserConfirmationService } from "@bitwarden/auto-confirm";
 import { Account, AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { AutofillSettingsServiceAbstraction } from "@bitwarden/common/autofill/services/autofill-settings.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions";
 import { UserId } from "@bitwarden/common/types/guid";
-import {
-  DialogService,
-  ItemModule,
-  LinkModule,
-  TypographyModule,
-  CalloutModule,
-  BerryComponent,
-} from "@bitwarden/components";
+import { ItemModule, TypographyModule, BerryComponent } from "@bitwarden/components";
 
 import { CurrentAccountComponent } from "../../../auth/popup/account-switching/current-account.component";
 import { PopOutComponent } from "../../../platform/popup/components/pop-out.component";
@@ -46,8 +37,6 @@ import { PopupPageComponent } from "../../../platform/popup/layout/popup-page.co
     ItemModule,
     CurrentAccountComponent,
     TypographyModule,
-    LinkModule,
-    CalloutModule,
     BerryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,10 +49,6 @@ export class SettingsV2Component {
       filter((account): account is Account => account !== null),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
-
-  protected readonly hasPremium$ = this.authenticatedAccount$.pipe(
-    switchMap((account) => this.accountProfileStateService.hasPremiumFromAnySource$(account.id)),
-  );
 
   readonly showDownloadBitwardenNudge$: Observable<boolean> = this.authenticatedAccount$.pipe(
     switchMap((account) =>
@@ -106,14 +91,8 @@ export class SettingsV2Component {
     private readonly nudgesService: NudgesService,
     private readonly accountService: AccountService,
     private readonly autoConfirmService: AutomaticUserConfirmationService,
-    private readonly accountProfileStateService: BillingAccountProfileStateService,
-    private readonly dialogService: DialogService,
     private readonly autofillSettingsService: AutofillSettingsServiceAbstraction,
   ) {}
-
-  protected openUpgradeDialog() {
-    PremiumUpgradeDialogComponent.open(this.dialogService);
-  }
 
   async dismissBadge(type: NudgeType) {
     if (await firstValueFrom(this.showVaultBadge$)) {

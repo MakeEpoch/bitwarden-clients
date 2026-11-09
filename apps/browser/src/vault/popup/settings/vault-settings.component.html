@@ -33,25 +33,10 @@
         <i slot="end" class="bwi bwi-angle-right" aria-hidden="true"></i>
       </a>
     </bit-item>
-    @if (userCanArchive()) {
+    @if (userCanArchive() || userHasArchivedItems()) {
       <bit-item>
         <a data-test-id="archive-link" bit-item-content routerLink="/archive">
           {{ "archiveNoun" | i18n }}
-          <i slot="end" class="bwi bwi-angle-right" aria-hidden="true"></i>
-        </a>
-      </bit-item>
-    } @else {
-      <bit-item>
-        <a
-          data-test-id="premium-archive-link"
-          bit-item-content
-          href="#"
-          (click)="conditionallyRouteToArchive($event)"
-        >
-          <span class="tw-flex tw-items-center tw-gap-2">
-            {{ "archiveNoun" | i18n }}
-            <app-premium-badge></app-premium-badge>
-          </span>
           <i slot="end" class="bwi bwi-angle-right" aria-hidden="true"></i>
         </a>
       </bit-item>

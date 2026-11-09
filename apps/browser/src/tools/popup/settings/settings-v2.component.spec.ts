@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, CUSTOM_ELEMENTS_SCHEMA } from "@angular/core";
 import { TestBed, waitForAsync } from "@angular/core/testing";
 import { RouterTestingModule } from "@angular/router/testing";
-import { mock, MockProxy } from "jest-mock-extended";
+import { mock } from "jest-mock-extended";
 import { BehaviorSubject, firstValueFrom, of, Subject } from "rxjs";
 
-import { PremiumUpgradeDialogComponent } from "@bitwarden/angular/billing/components";
 import { NudgesService, NudgeType } from "@bitwarden/angular/vault";
 import { AutomaticUserConfirmationService } from "@bitwarden/auto-confirm";
 import { AutofillBrowserSettingsService } from "@bitwarden/browser/autofill/services/autofill-browser-settings.service";
@@ -13,10 +12,8 @@ import { Account, AccountService } from "@bitwarden/common/auth/abstractions/acc
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AvatarService } from "@bitwarden/common/auth/abstractions/avatar.service";
 import { AutofillSettingsServiceAbstraction } from "@bitwarden/common/autofill/services/autofill-settings.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { PlatformUtilsService } from "@bitwarden/common/platform/abstractions/platform-utils.service";
-import { DialogService } from "@bitwarden/components";
 import { GlobalStateProvider } from "@bitwarden/state";
 import { FakeGlobalStateProvider } from "@bitwarden/state-test-utils";
 
@@ -35,7 +32,6 @@ class CurrentAccountStubComponent {}
 describe("SettingsV2Component", () => {
   let account$: BehaviorSubject<Account | null>;
   let mockAccountService: Partial<AccountService>;
-  let mockBillingState: { hasPremiumFromAnySource$: jest.Mock };
   let mockNudges: {
     showNudgeBadge$: jest.Mock;
     dismissNudge: jest.Mock;
@@ -48,18 +44,11 @@ describe("SettingsV2Component", () => {
     canManageAutoConfirm$: jest.Mock;
   };
   let mockAutofillSettingsService: Partial<AutofillSettingsServiceAbstraction>;
-  let dialogService: MockProxy<DialogService>;
-  let openSpy: jest.SpyInstance;
 
   beforeEach(waitForAsync(async () => {
-    dialogService = mock<DialogService>();
     account$ = new BehaviorSubject<Account | null>(null);
     mockAccountService = {
       activeAccount$: account$ as unknown as AccountService["activeAccount$"],
-    };
-
-    mockBillingState = {
-      hasPremiumFromAnySource$: jest.fn().mockReturnValue(of(false)),
     };
 
     mockNudges = {
@@ -86,12 +75,10 @@ describe("SettingsV2Component", () => {
       imports: [SettingsV2Component, RouterTestingModule],
       providers: [
         { provide: AccountService, useValue: mockAccountService },
-        { provide: BillingAccountProfileStateService, useValue: mockBillingState },
         { provide: NudgesService, useValue: mockNudges },
         { provide: AutofillBrowserSettingsService, useValue: mockAutofillSettings },
         { provide: AutomaticUserConfirmationService, useValue: mockAutoConfirmService },
         { provide: AutofillSettingsServiceAbstraction, useValue: mockAutofillSettingsService },
-        { provide: DialogService, useValue: dialogService },
         { provide: I18nService, useValue: { t: jest.fn((key: string) => key) } },
         { provide: GlobalStateProvider, useValue: new FakeGlobalStateProvider() },
         { provide: PlatformUtilsService, useValue: mock<PlatformUtilsService>() },
@@ -104,7 +91,6 @@ describe("SettingsV2Component", () => {
     TestBed.overrideComponent(SettingsV2Component, {
       add: {
         imports: [CurrentAccountStubComponent],
-        providers: [{ provide: DialogService, useValue: dialogService }],
       },
       remove: {
         imports: [CurrentAccountComponent],
@@ -124,44 +110,17 @@ describe("SettingsV2Component", () => {
     return acct;
   }
 
-  it("shows the premium callout when user does NOT have premium", async () => {
-    mockBillingState.hasPremiumFromAnySource$.mockReturnValue(of(false));
+  it("shows settings without an upgrade prompt", async () => {
     pushActiveAccount();
-
     const fixture = TestBed.createComponent(SettingsV2Component);
     fixture.detectChanges();
     await fixture.whenStable();
 
-    const el: HTMLElement = fixture.nativeElement;
-
-    expect(el.querySelector("bit-callout")).toBeTruthy();
-  });
-
-  it("hides the premium callout when user HAS premium", async () => {
-    mockBillingState.hasPremiumFromAnySource$.mockReturnValue(of(true));
-    pushActiveAccount();
-
-    const fixture = TestBed.createComponent(SettingsV2Component);
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector("bit-callout")).toBeFalsy();
-  });
-
-  it("openUpgradeDialog calls PremiumUpgradeDialogComponent.open with the DialogService", async () => {
-    openSpy = jest.spyOn(PremiumUpgradeDialogComponent, "open").mockImplementation();
-    mockBillingState.hasPremiumFromAnySource$.mockReturnValue(of(false));
-    pushActiveAccount();
-
-    const fixture = TestBed.createComponent(SettingsV2Component);
-    const component = fixture.componentInstance;
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    component["openUpgradeDialog"]();
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    expect(openSpy).toHaveBeenCalledWith(dialogService);
+    const element: HTMLElement = fixture.nativeElement;
+    expect(
+      element.querySelector('a[href="#/account-security"], a[href="/account-security"]'),
+    ).toBeTruthy();
+    expect(element.querySelector("bit-callout")).toBeNull();
   });
 
   it("showAutofillBadge$ emits true when showNudgeBadge is true", async () => {

@@ -1,13 +1,11 @@
 import { CommonModule } from "@angular/common";
-import { Component, inject, OnDestroy, OnInit, viewChild } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { Router, RouterModule } from "@angular/router";
 import { firstValueFrom, map, switchMap } from "rxjs";
 
-import { PremiumBadgeComponent } from "@bitwarden/angular/billing/components/premium-badge";
 import { JslibModule } from "@bitwarden/angular/jslib.module";
 import { NudgesService, NudgeType } from "@bitwarden/angular/vault";
-import { BrowserPremiumUpgradePromptService } from "@bitwarden/browser/billing/popup/services/browser-premium-upgrade-prompt.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { FeatureFlag } from "@bitwarden/common/enums/feature-flag.enum";
@@ -15,7 +13,6 @@ import { ConfigService } from "@bitwarden/common/platform/abstractions/config/co
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
 import { CipherArchiveService } from "@bitwarden/common/vault/abstractions/cipher-archive.service";
-import { PremiumUpgradePromptService } from "@bitwarden/common/vault/abstractions/premium-upgrade-prompt.service";
 import { SyncService } from "@bitwarden/common/vault/abstractions/sync/sync.service.abstraction";
 import {
   BerryComponent,
@@ -45,16 +42,11 @@ import { ImportUpgradeNavigationService } from "../../../tools/popup/settings/im
     PopOutComponent,
     ItemModule,
     BerryComponent,
-    PremiumBadgeComponent,
     SpinnerComponent,
     Vfo1I18nPipe,
   ],
-  providers: [
-    { provide: PremiumUpgradePromptService, useClass: BrowserPremiumUpgradePromptService },
-  ],
 })
 export class VaultSettingsComponent implements OnInit, OnDestroy {
-  private readonly premiumBadgeComponent = viewChild(PremiumBadgeComponent);
   private readonly importUpgradeNavigationService = inject(ImportUpgradeNavigationService);
 
   lastSync = "--";
@@ -140,20 +132,6 @@ export class VaultSettingsComponent implements OnInit, OnDestroy {
       this.lastSync = last.toLocaleDateString() + " " + last.toLocaleTimeString();
     } else {
       this.lastSync = this.i18nService.t("never");
-    }
-  }
-
-  /**
-   * When a user can archive or has previously archived items, route them to
-   * the archive page. Otherwise, prompt them to upgrade to premium.
-   */
-  async conditionallyRouteToArchive(event: Event) {
-    event.preventDefault();
-    const premiumBadge = this.premiumBadgeComponent();
-    if (this.userCanArchive() || this.userHasArchivedItems()) {
-      await this.router.navigate(["/archive"]);
-    } else if (premiumBadge) {
-      await premiumBadge.promptForPremium(event);
     }
   }
 }

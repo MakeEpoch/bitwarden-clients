@@ -27,3 +27,30 @@ the attachment management button are hidden when the account lacks their existin
 Build locally with Node 24 and `npm ci`, then run `npm run dist:chrome -w @bitwarden/browser`.
 Extract `apps/browser/dist/dist-chrome.zip` and use Chrome's **Load unpacked** to select the
 directory containing `manifest.json`.
+
+## Install and update the signed Chrome extension
+
+On Linux, download the signed `.crx` from the
+[latest release](https://github.com/MakeEpoch/bitwarden-clients/releases/latest) and install it
+from `chrome://extensions`. If browser policy requires a managed installation, use
+[`ExtensionInstallForcelist`](https://chromeenterprise.google/policies/#ExtensionInstallForcelist)
+with this value:
+
+```text
+aieoaondkkbpmemogejhhcgipjgllide;https://github.com/MakeEpoch/bitwarden-clients/releases/latest/download/updates.xml
+```
+
+Chrome reads `updates.xml` periodically and installs a newer CRX after verifying its signature.
+Windows and macOS Chrome require an enterprise-managed configuration for this self-hosted
+installation. Chrome Web Store distribution follows its own update channel.
+
+If you currently load the ZIP as an unpacked extension, install the signed CRX once and sign
+in again. The signed extension has its own stable identity and Chrome storage. Verify vault
+sync before removing the previous copy. The ZIP can still be used for development.
+
+To publish an update, run **Fork Browser** on `main` with `current_main_only` enabled, then run
+`bash scripts/publish-fork-browser.sh VERSION RUN_ID`. The publisher uses the package from that
+run and the local signing key at `~/.local/share/makeepoch-vault/chrome-signing.pem`.
+For the same upstream version, increment the fourth component. Each signed release contains a
+CRX, a matching ZIP, and `updates.xml`. Keep a secure backup of the original private key to
+preserve the extension ID.

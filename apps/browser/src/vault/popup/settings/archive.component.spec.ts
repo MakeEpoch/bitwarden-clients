@@ -73,7 +73,6 @@ describe("ArchiveComponent", () => {
             userHasPremium$,
             archivedCiphers$,
             userCanArchive$: jest.fn().mockReturnValue(of(true)),
-            showSubscriptionEndedMessaging$: jest.fn().mockReturnValue(of(false)),
           },
         },
         { provide: ToastService, useValue: mock<ToastService>() },

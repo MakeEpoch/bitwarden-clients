@@ -69,7 +69,6 @@ import { AutofillComponent } from "../autofill/popup/settings/autofill.component
 import { BlockedDomainsComponent } from "../autofill/popup/settings/blocked-domains.component";
 import { ExcludedDomainsComponent } from "../autofill/popup/settings/excluded-domains.component";
 import { NotificationsSettingsComponent } from "../autofill/popup/settings/notifications.component";
-import { PremiumV2Component } from "../billing/popup/settings/premium-v2.component";
 import { HealthRiskCategoryDetailComponent } from "../dirt/health/popup/health-risk-category-detail.component";
 import { HealthComponent } from "../dirt/health/popup/health.component";
 import { canAccessHealth } from "../dirt/health/popup/services/health-access.service";
@@ -401,9 +400,8 @@ const routes: Routes = [
   },
   {
     path: "premium",
-    component: PremiumV2Component,
-    canActivate: [authGuard],
-    data: { elevation: 3 } satisfies RouteDataProperties,
+    redirectTo: "tabs/settings",
+    pathMatch: "full",
   },
   {
     path: "appearance",

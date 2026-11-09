@@ -7,7 +7,6 @@ import { BehaviorSubject, of } from "rxjs";
 
 import { NudgesService } from "@bitwarden/angular/vault";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
@@ -89,10 +88,7 @@ describe("VaultSettingsComponent", () => {
     await TestBed.configureTestingModule({
       imports: [VaultSettingsComponent],
       providers: [
-        provideRouter([
-          { path: "archive", component: VaultSettingsComponent },
-          { path: "premium", component: VaultSettingsComponent },
-        ]),
+        provideRouter([{ path: "archive", component: VaultSettingsComponent }]),
         { provide: SyncService, useValue: mock<SyncService>() },
         { provide: MessagingService, useValue: mock<MessagingService>() },
         { provide: ToastService, useValue: mock<ToastService>() },
@@ -111,10 +107,6 @@ describe("VaultSettingsComponent", () => {
           useValue: { showNudgeBadge$: jest.fn().mockReturnValue(mockShowNudgeBadge$) },
         },
 
-        {
-          provide: BillingAccountProfileStateService,
-          useValue: mock<BillingAccountProfileStateService>(),
-        },
         {
           provide: AccountService,
           useValue: { activeAccount$: mockActiveAccount$ },
@@ -146,53 +138,18 @@ describe("VaultSettingsComponent", () => {
       expect(archiveLink?.nativeElement.getAttribute("routerLink")).toBe("/archive");
     });
 
-    it("routes to archive when user has archived items but cannot archive", async () => {
+    it("preserves access to items already archived after eligibility ends", () => {
       setArchiveState(false, [{ id: "cipher1" } as CipherView]);
 
-      const premiumArchiveLink = queryByTestId("premium-archive-link");
-
-      premiumArchiveLink?.nativeElement.click();
-      await fixture.whenStable();
-
-      expect(router.navigate).toHaveBeenCalledWith(["/archive"]);
+      expect(queryByTestId("archive-link")?.nativeElement.getAttribute("routerLink")).toBe(
+        "/archive",
+      );
     });
 
-    it("prompts for premium when user cannot archive and has no archived items", async () => {
-      setArchiveState(false, []);
-      const badge = component["premiumBadgeComponent"]();
-      jest.spyOn(badge!, "promptForPremium");
-
-      const premiumArchiveLink = queryByTestId("premium-archive-link");
-
-      premiumArchiveLink?.nativeElement.click();
-      await fixture.whenStable();
-
-      expect(badge!.promptForPremium).toHaveBeenCalled();
-    });
-  });
-
-  describe("archive visibility", () => {
-    it("displays archive link when user can archive", () => {
-      setArchiveState(true);
-
-      const archiveLink = queryByTestId("archive-link");
-
-      expect(archiveLink).toBeTruthy();
-      expect(component["userCanArchive"]()).toBe(true);
-    });
-
-    it("shows premium badge when user has no archived items and cannot archive", () => {
+    it("hides the archive link when the feature is unavailable", () => {
       setArchiveState(false, []);
 
-      expect(component["premiumBadgeComponent"]()).toBeTruthy();
-      expect(component["userHasArchivedItems"]()).toBe(false);
-    });
-
-    it("shows premium badge when user has archived items but cannot archive", () => {
-      setArchiveState(false, [{ id: "cipher1" } as CipherView]);
-
-      expect(component["premiumBadgeComponent"]()).toBeTruthy();
-      expect(component["userHasArchivedItems"]()).toBe(true);
+      expect(queryByTestId("archive-link")).toBeNull();
     });
   });
 
